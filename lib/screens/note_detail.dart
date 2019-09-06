@@ -25,9 +25,19 @@ class _NoteDetailState extends State<NoteDetail> {
 
     TextStyle textStyle = Theme.of(context).textTheme.title;
 
-    return Scaffold(
+    return WillPopScope(
+      onWillPop: (){
+        moveToLastScreen();
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: Text(appBarTitle),
+        leading: IconButton(icon:Icon( //below 4 lines for pop operation
+            Icons.arrow_back),
+            onPressed: (){
+            moveToLastScreen();
+          },
+        ),
       ),
 
       body: Padding(
@@ -128,6 +138,10 @@ class _NoteDetailState extends State<NoteDetail> {
           ],
         ),
       ),
+    )
     );
+  }
+  void moveToLastScreen(){
+    Navigator.pop(context);
   }
 }
