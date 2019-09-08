@@ -1,18 +1,25 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:note_app/models/note.dart';
+import 'package:note_app/utils/database_helper.dart';
+import 'package:intl/intl.dart';
 
 class NoteDetail extends StatefulWidget {
   String appBarTitle;
-
-  NoteDetail(this.appBarTitle);
+  final Note note;
+  NoteDetail(this.note,this.appBarTitle);
 
   @override
-  _NoteDetailState createState() => _NoteDetailState(this.appBarTitle);
+  _NoteDetailState createState() => _NoteDetailState(this.note,this.appBarTitle);
 }
 
 class _NoteDetailState extends State<NoteDetail> {
 
   String appBarTitle;
-  _NoteDetailState(this.appBarTitle);
+  Note note;
+  _NoteDetailState(this.note,this.appBarTitle);
+  DatabaseHelper helper = DatabaseHelper();
 
   static var _priorities = ['High','Low'];
 
@@ -24,6 +31,8 @@ class _NoteDetailState extends State<NoteDetail> {
 
 
     TextStyle textStyle = Theme.of(context).textTheme.title;
+    titleController.text = note.title;
+    descriptionController.text = note.description;
 
     return WillPopScope(
       onWillPop: (){
@@ -54,11 +63,12 @@ class _NoteDetailState extends State<NoteDetail> {
                 }).toList(),
 
                 style: textStyle,
-                value: 'Low',
+                value: getPriorityAsString(note.priority),
 
                 onChanged: (valueSelectedByUser){
                   setState(() {
                     debugPrint('User selected $valueSelectedByUser');
+                    updatePriorityAsInt(valueSelectedByUser);
                   });
                 },
               ),
@@ -69,7 +79,8 @@ class _NoteDetailState extends State<NoteDetail> {
                 controller: titleController,
                 style: textStyle,
                 onChanged: (value){
-                  debugPrint('dummy');
+                  debugPrint('changed in title field');
+                  updateTitle();
                 },
                 decoration: InputDecoration(
                   labelText: 'Title',
@@ -83,10 +94,11 @@ class _NoteDetailState extends State<NoteDetail> {
             Padding(
               padding: EdgeInsets.only(top: 15.0,bottom: 15.0),
               child: TextField(
-                controller: titleController,
+                controller: descriptionController,
                 style: textStyle,
                 onChanged: (value){
-                  debugPrint('dummy');
+                  debugPrint('change in description');
+                  updateDescription();
                 },
                 decoration: InputDecoration(
                     labelText: 'Description',
@@ -112,6 +124,7 @@ class _NoteDetailState extends State<NoteDetail> {
                       onPressed: (){
                         setState(() {
                           debugPrint("Dummy save");
+                          _save();
                         });
                       },
                     ),
@@ -122,12 +135,13 @@ class _NoteDetailState extends State<NoteDetail> {
                       color: Theme.of(context).primaryColorDark,
                       textColor: Theme.of(context).primaryColorLight,
                       child: Text(
-                        'Reset',
+                        'Delete',
                         textScaleFactor: 1.5,
                       ),
                       onPressed: (){
                         setState(() {
                           debugPrint("Dummy delete");
+                          _delete();
                         });
                       },
                     ),
@@ -142,6 +156,90 @@ class _NoteDetailState extends State<NoteDetail> {
     );
   }
   void moveToLastScreen(){
-    Navigator.pop(context);
+    Navigator.pop(context,true);
   }
-}
+  void updatePriorityAsInt(String value) {
+    switch (value) {
+      case 'High':
+        note.priority = 1;
+        break;
+      case 'Low':
+        note.priority = 2;
+        break;
+    }
+  }
+
+  // Convert int priority to String priority and display it to user in DropDown
+  String getPriorityAsString(int value) {
+    String priority;
+    switch (value) {
+      case 1:
+        priority = _priorities[0]; // 'High'
+        break;
+      case 2:
+        priority = _priorities[1]; // 'Low'
+        break;
+    }
+    return priority;
+  }
+  void updateTitle(){
+    note.title = titleController.text;
+  }
+
+  // Update the description of Note object
+  void updateDescription() {
+    note.description = descriptionController.text;
+  }
+  // for saving data to database
+  void _save() async {
+
+    moveToLastScreen();
+
+    note.date = DateFormat.yMMMd().format(DateTime.now());
+    int result;
+    if (note.id != null) {  // Case 1: Update operation
+      result = await helper.updateNote(note);
+    } else { // Case 2: Insert Operation
+      result = await helper.insertNote(note);
+    }
+
+    if (result != 0) {  // Success
+      _showAlertDialog('Status', 'Note Saved Successfully');
+    } else {  // Failure
+      _showAlertDialog('Status', 'Problem Saving Note');
+    }
+  }
+
+  void _showAlertDialog(String title, String message) {
+
+    AlertDialog alertDialog = AlertDialog(
+      title: Text(title),
+      content: Text(message),
+    );
+    showDialog(
+        context: context,
+        builder: (_) => alertDialog
+    );
+  }
+
+  // Delete note
+  void _delete() async {
+
+    moveToLastScreen();
+
+    // Case 1: If user is trying to delete the NEW NOTE i.e. he has come to
+    // the detail page by pressing the FAB of NoteList page.
+    if (note.id == null) {
+      _showAlertDialog('Status', 'No Note was deleted');
+      return;
+    }
+
+    // Case 2: User is trying to delete the old note that already has a valid ID.
+    int result = await helper.deleteNote(note.id);
+    if (result != 0) {
+      _showAlertDialog('Status', 'Note Deleted Successfully');
+    } else {
+      _showAlertDialog('Status', 'Error Occured while Deleting Note');
+    }
+  }
+  }

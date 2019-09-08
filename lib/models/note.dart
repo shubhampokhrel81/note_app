@@ -31,6 +31,11 @@ class Note{
       this._priority=newPriority;
     }
   }
+  set description(String newDescription) {
+    if (newDescription.length <= 255) {
+      this._description = newDescription;
+    }
+  }
 
   set date(String newDate){
     this._date= newDate;
